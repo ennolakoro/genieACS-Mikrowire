@@ -1,0 +1,10 @@
+# Logs
+logs/
+*.log
+*.log.*
+*.yaml
+*.gz
+
+# OS files
+.DS_Store
+Thumbs.db
