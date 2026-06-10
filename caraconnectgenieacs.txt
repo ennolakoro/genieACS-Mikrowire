@@ -1,0 +1,99 @@
+========================================================================
+ PANDUAN SETTING MANUAL TR-069 PADA MODEM ZTE F609 KE GENIEACS
+========================================================================
+
+Jika Anda ingin melakukan uji coba atau mengatur modem client secara manual 
+agar terhubung ke GenieACS (seperti pada tipe ZTE F609/F660), ikuti langkah 
+konfigurasi berikut:
+
+------------------------------------------------------------------------
+1. SPESIFIKASI ALAMAT & PORT ACS (GENIEACS)
+------------------------------------------------------------------------
+* Alamat IP VPS: 23.226.130.104
+* Port CWMP (Klien ID 1): 7541
+* Port UI (GenieACS Web): 3001
+* Alamat ACS URL: http://23.226.130.104:7541
+
+*(Catatan: Port CWMP dihitung dengan rumus 7540 + ID_KLIEN. Jika Anda menggunakan 
+Klien ID 2, maka port CWMP adalah 7542, dst).*
+
+------------------------------------------------------------------------
+2. LANGKAH SETTING DI WEB ADMIN MODEM ZTE F609
+------------------------------------------------------------------------
+Buka browser, masuk ke IP modem ZTE F609 Anda (biasanya 192.168.1.1), 
+lahu login menggunakan akun admin, lalu masuk ke menu:
+
+👉 Administration -> TR-069 -> Basic
+
+Isi kolom konfigurasi sebagai berikut:
+
+1. WAN Connection:
+   - Pilih koneksi WAN internet yang aktif (misal koneksi PPPoE atau DHCP 
+     yang Anda buat di menu Network -> WAN -> WAN Connection).
+     Jika koneksi internet menggunakan PPPoE, pilih nama interface PPPoE-nya.
+     
+2. ACS URL:
+   - Isi dengan: http://23.226.130.104:7541
+
+3. Username:
+   - Masukkan: CPE (atau kosongkan/bebas, karena default GenieACS tidak 
+     memerlukan otentikasi ketat untuk registrasi awal).
+
+4. Password:
+   - Masukkan: CPE (atau bebas).
+
+5. Connection Request Username:
+   - Masukkan: acs
+   - Ini adalah username yang digunakan GenieACS untuk "memanggil" modem 
+     ketika Anda menekan tombol "Refresh" atau mengirim perintah dari UI.
+
+6. Connection Request Password:
+   - Masukkan: acs (atau password pilihan Anda).
+
+7. Enable Periodic Inform:
+   - Centang / Aktifkan [x]
+   - Fitur ini memaksa modem untuk rutin melapor ke server GenieACS.
+
+8. Periodic Inform Interval:
+   - Ubah dari 43200 (12 jam) menjadi 300 atau 60 (untuk testing).
+   - Nilai 300 berarti modem akan melakukan update data/lapor ke GenieACS 
+     setiap 5 menit sekali.
+
+9. Klik tombol [ Submit ] di bagian bawah.
+
+------------------------------------------------------------------------
+3. MENDEFINISIKAN USERNAME & PASSWORD DI SISI GENIEACS
+------------------------------------------------------------------------
+Untuk keamanan komunikasi dua arah:
+
+A. Dari Modem ke ACS (CPE -> ACS):
+   Secara default, GenieACS tidak memblokir modem baru yang mendaftar. 
+   Namun jika Anda ingin membatasi keamanan, Anda dapat mensetting username 
+   dan password otentikasi di file genieacs.env menggunakan variabel:
+   - GENIEACS_CWMP_USER=CPE
+   - GENIEACS_CWMP_PASSWORD=password_anda
+
+B. Dari ACS ke Modem (ACS -> CPE / Connection Request):
+   Agar GenieACS bisa memanggil modem (misal untuk Reboot, Ganti Wi-Fi, dll), 
+   GenieACS harus mengirimkan Username & Password yang sama dengan yang 
+   diisi pada kolom "Connection Request" di modem.
+   
+   Cara mengaturnya di GenieACS:
+   1. Buka GenieACS UI di browser (`http://23.226.130.104:3001`).
+   2. Masuk ke menu Admin -> Config.
+   3. Tambahkan konfigurasi atau edit:
+      - `cwmp.connectionRequestUser` = acs
+      - `cwmp.connectionRequestPassword` = acs (atau password yang Anda set di modem)
+   4. Dengan begitu, setiap kali GenieACS memanggil modem, server akan otomatis 
+      mengirimkan kredensial tersebut agar disetujui oleh modem.
+
+------------------------------------------------------------------------
+4. VERIFIKASI KONEKSI
+------------------------------------------------------------------------
+Setelah menekan tombol [ Submit ] di modem:
+1. Tunggu sekitar 1-2 menit.
+2. Buka GenieACS UI di browser: http://23.226.130.104:3001
+3. Masuk ke menu Devices.
+4. Perangkat ZTE F609 Anda dengan Serial Number ZTEGc8a5160d akan otomatis 
+   muncul dalam daftar perangkat aktif.
+========================================================================
