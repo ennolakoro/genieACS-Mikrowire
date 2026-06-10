@@ -32,6 +32,15 @@ DB_NAME="genieacs_${CLIENT_NAME}"
 mkdir -p "$CLIENT_DIR"
 mkdir -p "$CLIENT_DIR/logs"
 
+# Tanya username & password CWMP (Optional / dengan nilai default)
+echo ""
+echo "---[ Konfigurasi Keamanan CWMP/ACS URL ]---"
+read -p "Username untuk ACS CWMP (Modem -> ACS) [CPE]: " INPUT_CWMP_USER
+CWMP_USER=${INPUT_CWMP_USER:-CPE}
+
+read -p "Password untuk ACS CWMP (Modem -> ACS) [CPE]: " INPUT_CWMP_PASS
+CWMP_PASS=${INPUT_CWMP_PASS:-CPE}
+
 # 2. Generate env file
 cat <<EOF > "$CLIENT_DIR/genieacs.env"
 GENIEACS_MONGODB_CONNECTION_URL=mongodb://genieacs_shared_mongo:27017/${DB_NAME}
@@ -41,6 +50,8 @@ GENIEACS_NBI_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-nbi-access.yaml
 GENIEACS_FS_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-fs-access.yaml
 GENIEACS_UI_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-ui-access.yaml
 GENIEACS_DEBUG_FILE=/var/log/genieacs/genieacs-debug.yaml
+GENIEACS_CWMP_USER=${CWMP_USER}
+GENIEACS_CWMP_PASSWORD=${CWMP_PASS}
 EOF
 
 # 3. Generate docker-compose.yml (Menggunakan image custom genieacs:custom)
@@ -260,7 +271,8 @@ echo ""
 echo " ---[ Konfigurasi Port & URL ]---"
 echo " UI URL / Port       : ${UI_URL} / Port: ${PORT_UI}"
 echo " CWMP URL / Port     : ${ACS_URL} / Port: ${PORT_CWMP}"
+echo " ACS Username        : ${CWMP_USER}"
+echo " ACS Password        : ${CWMP_PASS}"
 echo " NBI Port (Local)    : $PORT_NBI"
 echo " FS Port (Local)     : $PORT_FS"
-echo "================================================================"
-
+echo "======================================================================"
