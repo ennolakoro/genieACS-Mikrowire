@@ -13,6 +13,10 @@ RUN npm ci --omit=dev
 COPY genieacs-src/bin/ ./bin/
 COPY genieacs-src/public/ ./public/
 
+# Fix line endings (CRLF to LF) and make binaries executable
+RUN sed -i 's/\r$//' /app/bin/genieacs-* && \
+    chmod +x /app/bin/genieacs-*
+
 # Setup log directory and create permissions
 RUN mkdir -p /var/log/genieacs && \
     chmod 777 /var/log/genieacs
