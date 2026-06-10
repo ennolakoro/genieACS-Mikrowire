@@ -211,14 +211,25 @@ EOF
     else
         echo "[!] Binary HestiaCP tidak ditemukan. Lewati konfigurasi otomatis HestiaCP."
     fi
+else
+    # Ganti binding 127.0.0.1 ke public (0.0.0.0) di docker-compose.yml jika tidak menggunakan HestiaCP
+    echo "[+] Menonaktifkan integrasi HestiaCP. Membuka port UI secara publik..."
+    # Menggunakan sed untuk mengubah 127.0.0.1:port ke port
+    sed -i "s/127.0.0.1:\${PORT_UI}/\${PORT_UI}/g" "$CLIENT_DIR/docker-compose.yml"
+    
+    # Restart container agar perubahan port diterapkan
+    echo "[+] Restarting containers to apply port exposure..."
+    (cd "$CLIENT_DIR" && docker compose up -d --force-recreate >/dev/null 2>&1)
 fi
 
 # 7. Sesuaikan ACS URL di provisions database klien
 SERVER_IP=$(curl -s https://ipinfo.io/ip || echo "localhost")
 if [ "$INTEGRATE_HESTIA" = "y" ] || [ "$INTEGRATE_HESTIA" = "Y" ]; then
     ACS_URL="http://${DOMAIN_CWMP}"
+    UI_URL="http://${DOMAIN_UI}"
 else
     ACS_URL="http://${SERVER_IP}:${PORT_CWMP}"
+    UI_URL="http://${SERVER_IP}:${PORT_UI}"
 fi
 
 echo "[+] Menyesuaikan ACS URL di provisions database ke: $ACS_URL"
@@ -247,8 +258,8 @@ echo " - Direktori Klien   : $CLIENT_DIR"
 echo " - Log Klien         : $CLIENT_DIR/logs"
 echo ""
 echo " ---[ Konfigurasi Port & URL ]---"
-echo " UI URL / Port       : http://${DOMAIN_UI} (Proxy) / Port: ${PORT_UI}"
-echo " CWMP URL / Port     : ${ACS_URL} (Proxy) / Port: ${PORT_CWMP}"
+echo " UI URL / Port       : ${UI_URL} / Port: ${PORT_UI}"
+echo " CWMP URL / Port     : ${ACS_URL} / Port: ${PORT_CWMP}"
 echo " NBI Port (Local)    : $PORT_NBI"
 echo " FS Port (Local)     : $PORT_FS"
 echo "================================================================"
