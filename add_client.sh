@@ -35,11 +35,11 @@ mkdir -p "$CLIENT_DIR/logs"
 # Tanya username & password CWMP (Optional / dengan nilai default)
 echo ""
 echo "---[ Konfigurasi Keamanan CWMP/ACS URL ]---"
-read -p "Username untuk ACS CWMP (Modem -> ACS) [CPE]: " INPUT_CWMP_USER
-CWMP_USER=${INPUT_CWMP_USER:-CPE}
+read -p "Username untuk ACS CWMP (Modem -> ACS) [admin]: " INPUT_CWMP_USER
+CWMP_USER=${INPUT_CWMP_USER:-admin}
 
-read -p "Password untuk ACS CWMP (Modem -> ACS) [CPE]: " INPUT_CWMP_PASS
-CWMP_PASS=${INPUT_CWMP_PASS:-CPE}
+read -p "Password untuk ACS CWMP (Modem -> ACS) [acsadmin12345]: " INPUT_CWMP_PASS
+CWMP_PASS=${INPUT_CWMP_PASS:-acsadmin12345}
 
 # 2. Generate env file
 cat <<EOF > "$CLIENT_DIR/genieacs.env"

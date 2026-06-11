@@ -36,19 +36,20 @@ Isi kolom konfigurasi sebagai berikut:
    - Isi dengan: http://23.226.130.104:7541
 
 3. Username:
-   - Masukkan: CPE (atau kosongkan/bebas, karena default GenieACS tidak 
-     memerlukan otentikasi ketat untuk registrasi awal).
+   - Masukkan: admin
+     *(Sesuai dengan kredensial ACS default pada skrip provision).*
 
 4. Password:
-   - Masukkan: CPE (atau bebas).
+   - Masukkan: acsadmin12345
+     *(Sesuai dengan kredensial ACS default pada skrip provision).*
 
 5. Connection Request Username:
-   - Masukkan: acs
+   - Masukkan: admin
    - Ini adalah username yang digunakan GenieACS untuk "memanggil" modem 
      ketika Anda menekan tombol "Refresh" atau mengirim perintah dari UI.
 
 6. Connection Request Password:
-   - Masukkan: acs (atau password pilihan Anda).
+   - Masukkan: acsadmin12345
 
 7. Enable Periodic Inform:
    - Centang / Aktifkan [x]
@@ -67,11 +68,10 @@ Isi kolom konfigurasi sebagai berikut:
 Untuk keamanan komunikasi dua arah:
 
 A. Dari Modem ke ACS (CPE -> ACS):
-   Secara default, GenieACS tidak memblokir modem baru yang mendaftar. 
-   Namun jika Anda ingin membatasi keamanan, Anda dapat mensetting username 
-   dan password otentikasi di file genieacs.env menggunakan variabel:
-   - GENIEACS_CWMP_USER=CPE
-   - GENIEACS_CWMP_PASSWORD=password_anda
+   GenieACS akan mencocokkan username & password basic auth yang dikirim modem 
+   dengan nilai variabel di file genieacs.env berikut:
+   - GENIEACS_CWMP_USER=admin
+   - GENIEACS_CWMP_PASSWORD=acsadmin12345
 
 B. Dari ACS ke Modem (ACS -> CPE / Connection Request):
    Agar GenieACS bisa memanggil modem (misal untuk Reboot, Ganti Wi-Fi, dll), 
@@ -82,8 +82,8 @@ B. Dari ACS ke Modem (ACS -> CPE / Connection Request):
    1. Buka GenieACS UI di browser (`http://23.226.130.104:3001`).
    2. Masuk ke menu Admin -> Config.
    3. Tambahkan konfigurasi atau edit:
-      - `cwmp.connectionRequestUser` = acs
-      - `cwmp.connectionRequestPassword` = acs (atau password yang Anda set di modem)
+      - `cwmp.connectionRequestUser` = admin
+      - `cwmp.connectionRequestPassword` = acsadmin12345
    4. Dengan begitu, setiap kali GenieACS memanggil modem, server akan otomatis 
       mengirimkan kredensial tersebut agar disetujui oleh modem.
 
