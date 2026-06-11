@@ -215,7 +215,7 @@ else
     # Ganti binding 127.0.0.1 ke public (0.0.0.0) di docker-compose.yml jika tidak menggunakan HestiaCP
     echo "[+] Menonaktifkan integrasi HestiaCP. Membuka port UI secara publik..."
     # Menggunakan sed untuk mengubah 127.0.0.1:port ke port
-    sed -i "s/127.0.0.1:\${PORT_UI}/\${PORT_UI}/g" "$CLIENT_DIR/docker-compose.yml"
+    sed -i "s/127.0.0.1:${PORT_UI}/${PORT_UI}/g" "$CLIENT_DIR/docker-compose.yml"
     
     # Restart container agar perubahan port diterapkan
     echo "[+] Restarting containers to apply port exposure..."

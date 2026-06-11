@@ -96,3 +96,11 @@ Untuk mencadangkan database klien tertentu secara berkala:
 ./backup_client.sh <nama_klien>
 ```
 *File backup akan disimpan di direktori `/opt/genieacs/backups/` dalam format `<nama_klien>_YYYY-MM-DD_HHMMSS.archive.gz`.*
+
+### 4. Menghapus Klien secara Permanen (Delete)
+Jika Anda ingin menghapus klien sepenuhnya dari server (termasuk menghentikan kontainer, menghapus database MongoDB, menghapus file konfigurasi, dan opsional menghapus domain di HestiaCP):
+```bash
+./delete_client.sh <nama_klien>
+```
+*Peringatan: Tindakan ini bersifat permanen dan tidak dapat dibatalkan.*
+
