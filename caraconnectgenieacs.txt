@@ -68,10 +68,7 @@ Isi kolom konfigurasi sebagai berikut:
 Untuk keamanan komunikasi dua arah:
 
 A. Dari Modem ke ACS (CPE -> ACS):
-   GenieACS akan mencocokkan username & password basic auth yang dikirim modem 
-   dengan nilai variabel di file genieacs.env berikut:
-   - GENIEACS_CWMP_USER=admin
-   - GENIEACS_CWMP_PASSWORD=acsadmin12345
+   Secara default, GenieACS dikonfigurasi tanpa otentikasi ketat (anonymous/no-auth mode). Server tidak akan memvalidasi username/password saat modem terhubung ke ACS URL. Namun, skrip provision Anda (file2.txt) akan tetap meng-inject Username: admin dan Password: acsadmin12345 ke modem secara otomatis agar data konfigurasi modem seragam.
 
 B. Dari ACS ke Modem (ACS -> CPE / Connection Request):
    Agar GenieACS bisa memanggil modem (misal untuk Reboot, Ganti Wi-Fi, dll), 
