@@ -1,0 +1,86 @@
+========================================================================
+ PANDUAN INTEGRASI L2TP VPN ROUTING MIKROTIK KE GENIEACS (VPS 23.226.130.104)
+========================================================================
+
+Dokumentasi ini menjelaskan cara menghubungkan jalur komunikasi dua arah 
+antara VPS GenieACS (23.226.130.104) dengan IP lokal modem/ONU (misal 172.16.100.x) 
+di bawah router MikroTik menggunakan L2TP VPN.
+
+Dengan panduan ini, perintah seperti ganti SSID, Reboot, dan tombol [Summon] 
+di GenieACS UI tidak akan mengalami error "Device is offline" lagi.
+
+------------------------------------------------------------------------
+ASUMSI / SKENARIO TOPOLOGI
+------------------------------------------------------------------------
+* IP Publik VPS (L2TP Server): 23.226.130.104
+* IP VPN Tunnel (Sisi VPS): 10.10.10.1 (Sesuaikan dengan IP gateway L2TP Anda)
+* IP VPN Tunnel (Sisi MikroTik): 10.10.10.2 (IP yang didapat MikroTik dari VPS)
+* Jaringan IP Lokal Modem Client: 172.16.100.0/24 (Sesuaikan dengan IP segmen modem)
+
+------------------------------------------------------------------------
+LANGKAH 1: HUBUNGKAN L2TP CLIENT DI MIKROTIK
+------------------------------------------------------------------------
+Hubungkan MikroTik Anda ke VPS L2TP Server di 23.226.130.104. 
+Buka terminal MikroTik Anda, lalu jalankan:
+
+/interface l2tp-client
+add connect-to=23.226.130.104 disabled=no name=l2tp-acs-vps password=PASSWORD_VPN_ANDA user=USERNAME_VPN_ANDA
+
+*(Ganti USERNAME_VPN_ANDA dan PASSWORD_VPN_ANDA sesuai akun VPN L2TP yang telah dibuat).*
+Pastikan interface L2TP ini sudah terhubung (status 'R' / running di Winbox).
+
+------------------------------------------------------------------------
+LANGKAH 2: TENTUKAN & CATAT IP L2TP MIKROTIK
+------------------------------------------------------------------------
+Setelah L2TP terhubung, periksa IP address L2TP yang diperoleh MikroTik:
+* Di Winbox: Masuk ke PPP -> Active Connections, atau IP -> Addresses.
+* Di Terminal MikroTik: Jalankan `/ip address print`
+* Catat IP lokal L2TP MikroTik tersebut (Misal: 10.10.10.2).
+
+------------------------------------------------------------------------
+LANGKAH 3: TAMBAHKAN ROUTING DI SISI VPS (GENIEACS SERVER)
+------------------------------------------------------------------------
+Masuk ke terminal SSH VPS (23.226.130.104), lalu daftarkan routing ke arah 
+jaringan modem lokal Anda via IP L2TP MikroTik:
+
+sudo ip route add 172.16.100.0/24 via 10.10.10.2
+
+*(Catatan: Ganti "172.16.100.0/24" dengan segmen IP modem Anda, dan ganti 
+"10.10.10.2" dengan IP L2TP MikroTik yang didapatkan pada Langkah 2).*
+
+Agar routing ini tidak hilang setelah VPS restart (permanen):
+Buka file `/etc/netplan/` atau `/etc/network/interfaces` di VPS dan tambahkan static route tersebut, 
+atau tambahkan perintah tersebut ke dalam skrip startup VPS Anda.
+
+------------------------------------------------------------------------
+LANGKAH 4: KONFIGURASI FIREWALL & NAT DI MIKROTIK
+------------------------------------------------------------------------
+Jalankan perintah berikut di Terminal MikroTik agar trafik data dari VPS 
+tidak terhambat firewall dan NAT MikroTik:
+
+1. Izinkan Koneksi Masuk (Connection Request Port 7547 TCP) dari VPN:
+/ip firewall filter
+add action=accept chain=forward comment="GenieACS: Allow Connection Request from L2TP" dst-port=7547 in-interface=l2tp-acs-vps protocol=tcp place-before=0
+
+2. Bypass Masquerade (NAT) untuk Trafik VPN:
+Langkah ini agar modem membalas paket ke IP asli VPS VPN, bukan ter-NAT oleh MikroTik.
+/ip firewall nat
+add action=accept chain=srcnat comment="GenieACS: Bypass NAT L2TP" dst-address=10.10.10.0/24 src-address=172.16.100.0/24 place-before=0
+
+*(Catatan: Ganti 10.10.10.0/24 dengan IP subnet L2TP VPN Anda).*
+
+------------------------------------------------------------------------
+LANGKAH 5: PENGUJIAN KONEKSI
+------------------------------------------------------------------------
+1. Uji Ping dari Terminal VPS (23.226.130.104):
+   ping 172.16.100.252
+   (Pastikan hasilnya "Reply" dari IP modem).
+
+2. Uji Summon di GenieACS UI:
+   Buka UI GenieACS (port 3001), masuk ke menu Devices, lalu klik tombol [Summon].
+   Jika berhasil, status "Last Inform" akan langsung berubah ke waktu saat itu juga secara instan tanpa error "Device is offline".
+
+3. Uji Rubah SSID:
+   Masuk ke menu WLAN di UI GenieACS, ubah nama SSID, klik ikon Simpan (commit). 
+   Perubahan nama SSID sekarang akan langsung diterapkan ke modem secara instan.
+========================================================================
