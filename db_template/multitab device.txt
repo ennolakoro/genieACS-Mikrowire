@@ -563,8 +563,7 @@
               parameter: X_CMCC_LanInterface
             - label: "'Status'"
               parameter: ConnectionStatus
-    - filter: (InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANPONInterfaceConfig.RXPower
-        IS NOT NULL)
+    - filter: DeviceID.Manufacturer = "ZTE"
       type: "'container'"
       components:
         - element: "'div'"
@@ -655,8 +654,7 @@
               parameter: X_ZTE-COM_LanInterface
             - label: "'Status'"
               parameter: ConnectionStatus
-    - filter: (InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANPONInterfaceConfig.RXPower
-        IS NOT NULL)
+    - filter: DeviceID.Manufacturer = "ZTE"
       type: "'container'"
       components:
         - label: "'WAN 1 IPoE'"
