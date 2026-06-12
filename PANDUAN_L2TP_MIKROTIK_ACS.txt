@@ -1,86 +1,82 @@
 ========================================================================
- PANDUAN INTEGRASI L2TP VPN ROUTING MIKROTIK KE GENIEACS (VPS 23.226.130.104)
+ PANDUAN INTEGRASI L2TP VPN ROUTING MIKROTIK CHR KE GENIEACS
 ========================================================================
 
-Dokumentasi ini menjelaskan cara menghubungkan jalur komunikasi dua arah 
-antara VPS GenieACS (23.226.130.104) dengan IP lokal modem/ONU (misal 172.16.100.x) 
-di bawah router MikroTik menggunakan L2TP VPN.
+Dokumentasi ini menjelaskan konfigurasi routing L2TP VPN multi-hop dengan topologi:
+* VPS GenieACS (23.226.130.104) bertindak sebagai L2TP Client.
+* MikroTik Lokal (Modem Gateway) bertindak sebagai L2TP Client dengan IP 10.10.10.105.
+* MikroTik CHR (23.94.68.141) bertindak sebagai L2TP VPN Server.
+* Segmen IP Modem lokal: 172.16.100.0/24.
 
-Dengan panduan ini, perintah seperti ganti SSID, Reboot, dan tombol [Summon] 
-di GenieACS UI tidak akan mengalami error "Device is offline" lagi.
-
-------------------------------------------------------------------------
-ASUMSI / SKENARIO TOPOLOGI
-------------------------------------------------------------------------
-* IP Publik VPS (L2TP Server): 23.226.130.104
-* IP VPN Tunnel (Sisi VPS): 10.10.10.1 (Sesuaikan dengan IP gateway L2TP Anda)
-* IP VPN Tunnel (Sisi MikroTik): 10.10.10.2 (IP yang didapat MikroTik dari VPS)
-* Jaringan IP Lokal Modem Client: 172.16.100.0/24 (Sesuaikan dengan IP segmen modem)
+Dengan topologi ini, VPS GenieACS akan mengirimkan Connection Request ke modem 
+melewati VPN Server CHR, lalu diteruskan ke MikroTik Lokal dan sampai ke modem.
 
 ------------------------------------------------------------------------
-LANGKAH 1: HUBUNGKAN L2TP CLIENT DI MIKROTIK
+BAGIAN A: KONFIGURASI DI MIKROTIK CHR (L2TP SERVER - 23.94.68.141)
 ------------------------------------------------------------------------
-Hubungkan MikroTik Anda ke VPS L2TP Server di 23.226.130.104. 
-Buka terminal MikroTik Anda, lalu jalankan:
+Sebagai server VPN yang menjembatani kedua client, CHR harus memiliki rute ke 
+arah subnet modem yang berada di bawah MikroTik Lokal.
+
+1. Pastikan kedua akun PPP (untuk VPS dan MikroTik Lokal) sudah dibuat di CHR.
+2. Pastikan MikroTik Lokal mendapatkan IP statis `10.10.10.105` saat terhubung.
+3. Tambahkan Static Route di CHR ke arah subnet modem melalui MikroTik Lokal:
+   /ip route
+   add dst-address=172.16.100.0/24 gateway=10.10.10.105
+
+------------------------------------------------------------------------
+BAGIAN B: HUBUNGKAN VPS GENIEACS (23.226.130.104) SEBAGAI L2TP CLIENT
+------------------------------------------------------------------------
+Agar VPS dapat menjangkau `10.10.10.105`, VPS harus terlebih dahulu terhubung 
+sebagai L2TP client ke CHR (23.94.68.141). 
+
+Jika VPS belum terhubung, Anda akan mendapatkan error "Nexthop has invalid gateway" 
+saat menambahkan rute.
+
+Langkah install L2TP Client di Ubuntu/Debian VPS:
+1. Install paket L2TP:
+   sudo apt-get update
+   sudo apt-get install -y xl2tpd strongswan
+
+2. Jika VPN L2TP Anda menggunakan IPsec (Preshared Key), buat konfigurasi di:
+   `/etc/ipsec.conf` dan `/etc/ipsec.secrets`.
+   Jika tidak menggunakan IPsec (Plain L2TP), abaikan strongswan dan konfigurasikan 
+   koneksi langsung di `/etc/xl2tpd/xl2tpd.conf`.
+
+3. Setelah interface L2TP di VPS aktif (misal terbentuk interface `ppp0` dan VPS 
+   memperoleh IP VPN seperti `10.10.10.100`), jalankan perintah routing berikut:
+   
+   sudo ip route add 172.16.100.0/24 via 10.10.10.105
+
+   *(Perintah ini sekarang akan sukses dijalankan karena segmen 10.10.10.x sudah aktif).*
+
+------------------------------------------------------------------------
+BAGIAN C: HUBUNGKAN MIKROTIK LOKAL (L2TP CLIENT - 10.10.10.105)
+------------------------------------------------------------------------
+Dial koneksi L2TP dari MikroTik Lokal Anda menuju CHR (23.94.68.141):
 
 /interface l2tp-client
-add connect-to=23.226.130.104 disabled=no name=l2tp-acs-vps password=PASSWORD_VPN_ANDA user=USERNAME_VPN_ANDA
+add connect-to=23.94.68.141 disabled=no name=l2tp-chr password=PASSWORD_VPN user=USER_MIKROTIK_LOKAL
 
-*(Ganti USERNAME_VPN_ANDA dan PASSWORD_VPN_ANDA sesuai akun VPN L2TP yang telah dibuat).*
-Pastikan interface L2TP ini sudah terhubung (status 'R' / running di Winbox).
-
-------------------------------------------------------------------------
-LANGKAH 2: TENTUKAN & CATAT IP L2TP MIKROTIK
-------------------------------------------------------------------------
-Setelah L2TP terhubung, periksa IP address L2TP yang diperoleh MikroTik:
-* Di Winbox: Masuk ke PPP -> Active Connections, atau IP -> Addresses.
-* Di Terminal MikroTik: Jalankan `/ip address print`
-* Catat IP lokal L2TP MikroTik tersebut (Misal: 10.10.10.2).
+Pastikan IP yang diperoleh di sisi MikroTik lokal adalah **10.10.10.105**.
 
 ------------------------------------------------------------------------
-LANGKAH 3: TAMBAHKAN ROUTING DI SISI VPS (GENIEACS SERVER)
+BAGIAN D: FIREWALL & NAT DI MIKROTIK LOKAL
 ------------------------------------------------------------------------
-Masuk ke terminal SSH VPS (23.226.130.104), lalu daftarkan routing ke arah 
-jaringan modem lokal Anda via IP L2TP MikroTik:
+Jalankan perintah berikut di Terminal MikroTik Lokal Anda agar trafik Connection Request 
+dapat diteruskan ke modem tanpa terblokir atau ter-NAT:
 
-sudo ip route add 172.16.100.0/24 via 10.10.10.2
-
-*(Catatan: Ganti "172.16.100.0/24" dengan segmen IP modem Anda, dan ganti 
-"10.10.10.2" dengan IP L2TP MikroTik yang didapatkan pada Langkah 2).*
-
-Agar routing ini tidak hilang setelah VPS restart (permanen):
-Buka file `/etc/netplan/` atau `/etc/network/interfaces` di VPS dan tambahkan static route tersebut, 
-atau tambahkan perintah tersebut ke dalam skrip startup VPS Anda.
-
-------------------------------------------------------------------------
-LANGKAH 4: KONFIGURASI FIREWALL & NAT DI MIKROTIK
-------------------------------------------------------------------------
-Jalankan perintah berikut di Terminal MikroTik agar trafik data dari VPS 
-tidak terhambat firewall dan NAT MikroTik:
-
-1. Izinkan Koneksi Masuk (Connection Request Port 7547 TCP) dari VPN:
+1. Izinkan Connection Request (Port 7547 TCP) dari interface L2TP:
 /ip firewall filter
-add action=accept chain=forward comment="GenieACS: Allow Connection Request from L2TP" dst-port=7547 in-interface=l2tp-acs-vps protocol=tcp place-before=0
+add action=accept chain=forward comment="GenieACS: Connection Request" dst-port=7547 in-interface=l2tp-chr protocol=tcp place-before=0
 
-2. Bypass Masquerade (NAT) untuk Trafik VPN:
-Langkah ini agar modem membalas paket ke IP asli VPS VPN, bukan ter-NAT oleh MikroTik.
+2. Bypass Masquerade (NAT) untuk segment L2TP VPN:
 /ip firewall nat
 add action=accept chain=srcnat comment="GenieACS: Bypass NAT L2TP" dst-address=10.10.10.0/24 src-address=172.16.100.0/24 place-before=0
 
-*(Catatan: Ganti 10.10.10.0/24 dengan IP subnet L2TP VPN Anda).*
-
 ------------------------------------------------------------------------
-LANGKAH 5: PENGUJIAN KONEKSI
+BAGIAN E: VERIFIKASI
 ------------------------------------------------------------------------
-1. Uji Ping dari Terminal VPS (23.226.130.104):
+1. Dari terminal SSH VPS, lakukan ping ke modem:
    ping 172.16.100.252
-   (Pastikan hasilnya "Reply" dari IP modem).
-
-2. Uji Summon di GenieACS UI:
-   Buka UI GenieACS (port 3001), masuk ke menu Devices, lalu klik tombol [Summon].
-   Jika berhasil, status "Last Inform" akan langsung berubah ke waktu saat itu juga secara instan tanpa error "Device is offline".
-
-3. Uji Rubah SSID:
-   Masuk ke menu WLAN di UI GenieACS, ubah nama SSID, klik ikon Simpan (commit). 
-   Perubahan nama SSID sekarang akan langsung diterapkan ke modem secara instan.
+2. Buka GenieACS UI dan lakukan uji coba [Summon] atau ganti SSID.
 ========================================================================
