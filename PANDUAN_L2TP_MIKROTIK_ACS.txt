@@ -1,67 +1,61 @@
-========================================================================
- PANDUAN INTEGRASI L2TP VPN ROUTING MIKROTIK CHR KE GENIEACS
-========================================================================
+================================================================================
+  PANDUAN INTEGRASI L2TP VPN ROUTING & FIREWALL MULTI-HOP - MIKROWIRE TEAM
+================================================================================
 
-Dokumentasi ini menjelaskan konfigurasi routing L2TP VPN dengan topologi:
-* VPS GenieACS (23.226.130.104) -> Bertindak sebagai L2TP Client (IP: 10.10.10.110).
-* MikroTik Lokal (Modem Gateway) -> Bertindak sebagai L2TP Client (IP: 10.10.10.105).
-* MikroTik CHR (23.94.68.141) -> Bertindak sebagai L2TP VPN Server.
-* Segmen IP Modem lokal: 172.16.100.0/24.
+Dokumentasi ini menjelaskan konfigurasi lengkap routing dua arah dan pengaturan 
+firewall menggunakan L2TP VPN untuk menghubungkan server GenieACS dengan jaringan 
+lokal modem client.
 
-------------------------------------------------------------------------
-PENTING: AKUN PPP (USER/PASS) TERPISAH UNTUK VPS
-------------------------------------------------------------------------
-**Ya, Anda wajib membuat akun PPP Secret baru di MikroTik CHR khusus untuk VPS.**
-Jangan menggunakan akun MikroTik Lokal (10.10.10.105) di VPS! 
-Jika menggunakan akun yang sama, koneksi akan saling memutus (RTO) dan rute IP akan bentrok.
+--------------------------------------------------------------------------------
+ 1. DIAGRAM TOPOLOGI JARINGAN
+--------------------------------------------------------------------------------
 
-Buat akun baru di MikroTik CHR:
-* **Name:** `vps-acs`
-* **Password:** `password_vps_anda`
-* **Remote Address:** `10.10.10.110` (Beri IP statis khusus untuk VPS)
+   [ VPS GenieACS ]                     [ MikroTik CHR ]
+    23.226.130.104                       23.94.68.141
+   (IP L2TP: 10.10.10.104)              (IP L2TP Server: 10.10.10.1)
+           \                                   /
+            \======== [ L2TP TUNNEL ] ========/
+            /                                 \
+           /                                   \
+   [ MikroTik Lokal ]                           [ Modem/ONU Client ]
+    IP L2TP: 10.10.10.105                        IP Lokal: 172.16.100.252
+    Subnet Lokal: 172.16.100.0/24
 
-========================================================================
-METODE 1: MENGGUNAKAN STUN GOOGLE (REKOMENDASI: TANPA VPN DI VPS)
-========================================================================
-Jika Anda tidak ingin menginstal L2TP client di VPS GenieACS karena rumit, gunakan STUN. 
-VPS GenieACS tidak perlu join VPN. Cukup atur di modem ZTE F609 Anda:
+--------------------------------------------------------------------------------
+ 2. PERSIAPAN PPP SECRET DI MIKROTIK CHR (VPN SERVER)
+--------------------------------------------------------------------------------
+Buat dua akun PPP Secret terpisah di MikroTik CHR agar kedua client (VPS & MikroTik 
+Lokal) dapat terhubung secara bersamaan tanpa bentrok IP:
 
-1. Buka Web Admin modem ZTE F609.
-2. Masuk ke menu **Administration** -> **TR-069** -> **STUN**.
-3. Atur konfigurasi:
-   * **STUN Enable:** Centang (Aktifkan)
-   * **STUN Server Address:** `stun.l.google.com` (STUN Server Google)
-   * **STUN Server Port:** `19302`
-   * **STUN Username & Password:** Kosongkan
-   * **STUN Maximum Keep-Alive Period:** `30` atau `60` detik.
-4. Klik **Submit**.
+1. **Akun untuk VPS GenieACS:**
+   * Name: `trialvps`
+   * Password: `trialvps`
+   * Local Address: `10.10.10.1`
+   * Remote Address: `10.10.10.104`
 
-========================================================================
-METODE 2: CARA INSTALL & SETTING XL2TPD DI VPS (UBUNTU/DEBIAN)
-========================================================================
-Jika Anda memilih menggunakan VPN L2TP pada VPS GenieACS, ikuti langkah berikut:
+2. **Akun untuk MikroTik Lokal:**
+   * Name: `trialmikrotik` (atau sesuaikan keinginan Anda)
+   * Password: `password_mikrotik_anda`
+   * Local Address: `10.10.10.1`
+   * Remote Address: `10.10.10.105`
 
-⚠️ PENTING (BACA DULU):
-Jangan mengaktifkan `defaultroute` di konfigurasi pppd VPS! Jika diaktifkan, semua trafik internet VPS 
-akan diarahkan ke VPN. Anda akan kehilangan koneksi SSH ke VPS dan HestiaCP/GenieACS UI akan offline.
+--------------------------------------------------------------------------------
+ 3. INSTALASI & KONFIGURASI XL2TPD DI VPS GENIEACS
+--------------------------------------------------------------------------------
+Lakukan konfigurasi ini di terminal SSH VPS GenieACS menggunakan hak akses `sudo`.
 
----
-
-### Langkah 1: Install Paket xl2tpd di VPS
-Masuk ke terminal SSH VPS (23.226.130.104), lalu jalankan:
+### Langkah 3.1: Install Paket L2TP Client
 ```bash
 sudo apt-get update
 sudo apt-get install -y xl2tpd
 ```
 
----
-
-### Langkah 2: Buat File Konfigurasi xl2tpd
-Edit file `/etc/xl2tpd/xl2tpd.conf` menggunakan nano atau editor teks:
+### Langkah 3.2: Konfigurasikan xl2tpd
+Buka file `/etc/xl2tpd/xl2tpd.conf`:
 ```bash
 sudo nano /etc/xl2tpd/xl2tpd.conf
 ```
-Hapus isinya dan ganti dengan konfigurasi berikut:
+Ganti seluruh isinya dengan konfigurasi berikut:
 ```ini
 [lac vps-l2tp]
 lns = 23.94.68.141
@@ -70,14 +64,12 @@ pppoptfile = /etc/ppp/options.l2tpd.client
 length bit = yes
 ```
 
----
-
-### Langkah 3: Buat File Opsi PPP
+### Langkah 3.3: Konfigurasikan Opsi PPP Client
 Buat file baru di `/etc/ppp/options.l2tpd.client`:
 ```bash
 sudo nano /etc/ppp/options.l2tpd.client
 ```
-Masukkan konfigurasi berikut (pastikan **TIDAK** ada opsi `defaultroute`):
+Masukkan konfigurasi berikut (pastikan memasukkan baris `user trialvps` dan `nodefaultroute`):
 ```text
 ipcp-accept-local
 ipcp-accept-remote
@@ -96,83 +88,96 @@ nodefaultroute
 user trialvps
 ```
 
----
-
-### Langkah 4: Tambahkan Kredensial VPN (Username & Password)
+### Langkah 3.4: Daftarkan Password VPN
 Buka file `/etc/ppp/chap-secrets`:
 ```bash
 sudo nano /etc/ppp/chap-secrets
 ```
-Tambahkan baris berikut di bagian paling bawah (sesuaikan dengan akun PPP VPS yang Anda buat di CHR):
+Tambahkan kredensial VPN Anda di bagian paling bawah:
 ```text
-vps-acs         *       password_vps_anda          *
+# client        server  secret                  IP addresses
+trialvps        *       trialvps                *
 ```
 
----
-
-### Langkah 5: Hubungkan VPN & Tambahkan Routing
-Jalankan perintah ini untuk me-restart service xl2tpd dan melakukan *dial* koneksi VPN:
-
+### Langkah 3.5: Dial Koneksi VPN L2TP
+Jalankan perintah ini untuk memulai koneksi VPN:
 ```bash
-# 1. Restart Service
+# Restart service agar membaca konfigurasi baru
 sudo systemctl restart xl2tpd
 
-# 2. Perintahkan xl2tpd untuk melakukan Dial
+# Perintahkan xl2tpd untuk melakukan Dial
 sudo sh -c 'echo "c vps-l2tp" > /var/run/xl2tpd/l2tp-control'
 ```
 
-Tunggu sekitar 5-10 detik. Kemudian periksa apakah interface `ppp0` sudah terbentuk:
+Periksa apakah interface `ppp0` sudah aktif dan mendapatkan IP `10.10.10.104`:
 ```bash
 ip address show dev ppp0
 ```
-Jika berhasil muncul IP `10.10.10.110`, tambahkan routing ke arah modem Anda:
+
+--------------------------------------------------------------------------------
+ 4. PENGATURAN ROUTING DI VPS GENIEACS (SANGAT PENTING)
+--------------------------------------------------------------------------------
+Karena L2TP di Linux secara default bertipe Point-to-Point (/32), Anda **wajib** mendaftarkan rute segmen VPN agar tidak dilempar ke default gateway publik internet.
+
+Jalankan perintah ini di **Terminal SSH VPS**:
 ```bash
+# 1. Daftarkan rute subnet VPN ke interface ppp0
+sudo ip route add 10.10.10.0/24 dev ppp0
+
+# 2. Daftarkan rute subnet modem ke MikroTik Lokal
 sudo ip route add 172.16.100.0/24 via 10.10.10.105
 ```
 
-*(Catatan: Rute ini akan otomatis dilewatkan ke MikroTik Lokal `10.10.10.105` melalui terowongan VPN).*
+--------------------------------------------------------------------------------
+ 5. KONFIGURASI DI MIKROTIK CHR (23.94.68.141)
+--------------------------------------------------------------------------------
+Jalankan perintah berikut di **Terminal MikroTik CHR** Anda:
 
----
+1. **Tambahkan Rute ke Segmen Modem lokal via MikroTik Lokal:**
+   ```routeros
+   /ip route
+   add dst-address=172.16.100.0/24 gateway=10.10.10.105
+   ```
 
-### Langkah 6: Cara Putuskan Koneksi VPN (Disconnect)
-Jika ingin memutus koneksi VPN L2TP kapan saja, jalankan:
-```bash
-sudo sh -c 'echo "d vps-l2tp" > /var/run/xl2tpd/l2tp-control'
-```
+2. **Izinkan Forwarding data antar-klien di Firewall CHR:**
+   ```routeros
+   /ip firewall filter
+   add action=accept chain=forward comment="GenieACS: Allow VPN Client-to-Client Forwarding" src-address=10.10.10.0/24 dst-address=10.10.10.0/24 place-before=0
+   add action=accept chain=forward comment="GenieACS: Allow Forward to Modem Subnet" src-address=10.10.10.0/24 dst-address=172.16.100.0/24 place-before=0
+   ```
 
-========================================================================
-BAGIAN C: KONFIGURASI DI MIKROTIK CHR & MIKROTIK LOKAL
-========================================================================
+--------------------------------------------------------------------------------
+ 6. KONFIGURASI DI MIKROTIK LOKAL (IP VPN: 10.10.10.105)
+--------------------------------------------------------------------------------
+Jalankan perintah berikut di **Terminal MikroTik Lokal** Anda:
 
-#### 1. Konfigurasi di MikroTik CHR (23.94.68.141)
-Agar CHR dapat menjembatani rute dan trafik antar client VPN:
+1. **Izinkan ping (input) dan data forward dari VPN:**
+   ```routeros
+   /ip firewall filter
+   add action=accept chain=input comment="GenieACS: Allow Input from VPN" src-address=10.10.10.0/24 place-before=0
+   add action=accept chain=forward comment="GenieACS: Allow Forward from VPN" src-address=10.10.10.0/24 place-before=0
+   add action=accept chain=forward comment="GenieACS: Connection Request" dst-port=7547 in-interface=l2tp-out1 protocol=tcp place-before=0
+   ```
+   *(Catatan: Sesuaikan l2tp-out1 dengan nama interface L2TP client di MikroTik lokal Anda).*
 
-* **Static Route:**
-  ```routeros
-  /ip route
-  add dst-address=172.16.100.0/24 gateway=10.10.10.105
-  ```
+2. **Bypass Masquerade (NAT) untuk segment VPN:**
+   ```routeros
+   /ip firewall nat
+   add action=accept chain=srcnat comment="GenieACS: Bypass NAT L2TP" dst-address=10.10.10.0/24 src-address=172.16.100.0/24 place-before=0
+   ```
 
-* **Firewall Filter Forward:**
-  ```routeros
-  /ip firewall filter
-  add action=accept chain=forward comment="GenieACS: Allow VPN Client-to-Client Forwarding" src-address=10.10.10.0/24 dst-address=10.10.10.0/24 place-before=0
-  add action=accept chain=forward comment="GenieACS: Allow Forward to Modem Subnet" src-address=10.10.10.0/24 dst-address=172.16.100.0/24 place-before=0
-  ```
+--------------------------------------------------------------------------------
+ 7. PENGUJIAN DAN VERIFIKASI KONEKSI
+--------------------------------------------------------------------------------
+Setelah semua konfigurasi di atas selesai, jalankan pengujian berikut di VPS:
 
-#### 2. Konfigurasi di MikroTik Lokal (10.10.10.105)
-Agar MikroTik lokal mau menerima ping dan meneruskan data dari segmen VPN:
+1. **Ping ke MikroTik Lokal:**
+   `ping -c 4 10.10.10.105` (Harus sukses/Reply)
+2. **Ping ke Modem Client:**
+   `ping -c 4 172.16.100.252` (Harus sukses/Reply)
+3. **Uji Summon di GenieACS:**
+   Buka browser GenieACS UI, klik tombol **Summon** atau ganti SSID perangkat Anda. Perintah akan tereksekusi instan tanpa kendala.
 
-* **Firewall Filter Input & Forward:**
-  ```routeros
-  /ip firewall filter
-  add action=accept chain=input comment="GenieACS: Allow Input from VPN" src-address=10.10.10.0/24 place-before=0
-  add action=accept chain=forward comment="GenieACS: Allow Forward from VPN" src-address=10.10.10.0/24 place-before=0
-  ```
-
-* **Bypass NAT (Srcnat):**
-  ```routeros
-  /ip firewall nat
-  add action=accept chain=srcnat comment="GenieACS: Bypass NAT L2TP" dst-address=10.10.10.0/24 src-address=172.16.100.0/24 place-before=0
-  ```
-========================================================================
+================================================================================
+   Created & Documented by Mikrowire Team | Support & Automation Solution
+================================================================================
