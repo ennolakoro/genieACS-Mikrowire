@@ -93,6 +93,7 @@ debug
 nobsdcomp
 novj
 nodefaultroute
+user trialvps
 ```
 
 ---
