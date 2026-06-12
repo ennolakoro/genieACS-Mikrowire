@@ -90,7 +90,6 @@ noccp
 noauth
 idle 0
 debug
-lock
 nobsdcomp
 novj
 nodefaultroute
