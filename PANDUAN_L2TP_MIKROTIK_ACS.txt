@@ -144,23 +144,35 @@ sudo sh -c 'echo "d vps-l2tp" > /var/run/xl2tpd/l2tp-control'
 BAGIAN C: KONFIGURASI DI MIKROTIK CHR & MIKROTIK LOKAL
 ========================================================================
 
-#### 1. Routing di MikroTik CHR (23.94.68.141)
-Agar CHR tahu bahwa IP `172.16.100.x` berada di MikroTik Lokal (`10.10.10.105`):
-```routeros
-/ip route
-add dst-address=172.16.100.0/24 gateway=10.10.10.105
-```
+#### 1. Konfigurasi di MikroTik CHR (23.94.68.141)
+Agar CHR dapat menjembatani rute dan trafik antar client VPN:
 
-#### 2. Firewall Forward di MikroTik Lokal (10.10.10.105)
-Izinkan Connection Request masuk ke modem:
-```routeros
-/ip firewall filter
-add action=accept chain=forward comment="GenieACS: Connection Request" dst-port=7547 in-interface=l2tp-chr protocol=tcp place-before=0
-```
+* **Static Route:**
+  ```routeros
+  /ip route
+  add dst-address=172.16.100.0/24 gateway=10.10.10.105
+  ```
 
-#### 3. Bypass NAT di MikroTik Lokal (10.10.10.105)
-```routeros
-/ip firewall nat
-add action=accept chain=srcnat comment="GenieACS: Bypass NAT L2TP" dst-address=10.10.10.0/24 src-address=172.16.100.0/24 place-before=0
-```
+* **Firewall Filter Forward:**
+  ```routeros
+  /ip firewall filter
+  add action=accept chain=forward comment="GenieACS: Allow VPN Client-to-Client Forwarding" src-address=10.10.10.0/24 dst-address=10.10.10.0/24 place-before=0
+  add action=accept chain=forward comment="GenieACS: Allow Forward to Modem Subnet" src-address=10.10.10.0/24 dst-address=172.16.100.0/24 place-before=0
+  ```
+
+#### 2. Konfigurasi di MikroTik Lokal (10.10.10.105)
+Agar MikroTik lokal mau menerima ping dan meneruskan data dari segmen VPN:
+
+* **Firewall Filter Input & Forward:**
+  ```routeros
+  /ip firewall filter
+  add action=accept chain=input comment="GenieACS: Allow Input from VPN" src-address=10.10.10.0/24 place-before=0
+  add action=accept chain=forward comment="GenieACS: Allow Forward from VPN" src-address=10.10.10.0/24 place-before=0
+  ```
+
+* **Bypass NAT (Srcnat):**
+  ```routeros
+  /ip firewall nat
+  add action=accept chain=srcnat comment="GenieACS: Bypass NAT L2TP" dst-address=10.10.10.0/24 src-address=172.16.100.0/24 place-before=0
+  ```
 ========================================================================
