@@ -1,0 +1,97 @@
+========================================================================
+ PANDUAN INTEGRASI ZEROTIER VPN ROUTING MIKROTIK KE GENIEACS
+========================================================================
+
+ZeroTier adalah solusi SD-WAN yang sangat praktis untuk menghubungkan VPS GenieACS 
+dengan MikroTik ke dalam satu jaringan virtual flat. 
+
+Salah satu kelebihan ZeroTier adalah Anda bisa mengatur routing segmen IP modem 
+langsung dari dashboard my.zerotier.com tanpa perlu mengetik command route di VPS.
+
+⚠️ PENTING (BACA SEBELUM MEMULAI):
+ZeroTier pada MikroTik hanya didukung pada RouterOS v7 dengan arsitektur CPU 
+ARM, ARM64, Tile, atau x86/CHR (contoh: RB3011, RB4011, RB5009, hAP ac3, CHR, dll).
+Tipe MikroTik ber-CPU MIPSBE/MMIPS seperti RB750Gr3 (hEX r3) atau hAP lite 
+TIDAK didukung oleh paket ZeroTier dari MikroTik karena keterbatasan storage & RAM.
+
+------------------------------------------------------------------------
+ASUMSI / SKENARIO TOPOLOGI
+------------------------------------------------------------------------
+* ID Jaringan ZeroTier (Network ID): 8056c2e21cXXXXXX
+* Range IP ZeroTier: 10.147.20.0/24 (Dibuat otomatis oleh ZeroTier)
+* IP ZeroTier VPS: 10.147.20.1
+* IP ZeroTier MikroTik: 10.147.20.10
+* Jaringan IP Lokal Modem Client: 172.16.100.0/24
+
+------------------------------------------------------------------------
+LANGKAH 1: SETUP NETWORK DI DASHBOARD ZEROTIER
+------------------------------------------------------------------------
+1. Buka https://my.zerotier.com/ dan login.
+2. Buat jaringan baru (Create a Network) dan catat 16-digit **Network ID** Anda.
+3. Di tab **Settings** -> **IPv4 Auto-Assign**, pilih salah satu range IP privat 
+   (misal: `10.147.20.*`).
+
+------------------------------------------------------------------------
+LANGKAH 2: HUBUNGKAN VPS (UBUNTU/DEBIAN) KE ZEROTIER
+------------------------------------------------------------------------
+Masuk ke terminal SSH VPS GenieACS Anda, lalu jalankan perintah:
+
+1. Install ZeroTier-One:
+   curl -s https://install.zerotier.com | sudo bash
+
+2. Join ke Network ID Anda:
+   sudo zerotier-cli join <NETWORK_ID_ANDA>
+
+3. Masuk ke dashboard ZeroTier Anda, gulir ke bawah ke daftar **Members**, 
+   lalu **Centang (Authorize)** perangkat VPS Anda agar mendapatkan IP (misal: 10.147.20.1).
+
+------------------------------------------------------------------------
+LANGKAH 3: HUBUNGKAN MIKROTIK KE ZEROTIER
+------------------------------------------------------------------------
+1. Di MikroTik (RouterOS v7), pastikan paket `zerotier` sudah terinstall 
+   (cek di System -> Packages). Jika belum, download extra-packages dari mikrotik.com.
+2. Buka Winbox, klik menu **ZeroTier** di bilah kiri.
+3. Pada tab **Interfaces**, klik tanda `+` (Add New) dan masukkan:
+   * **Network ID**: Masukkan 16-digit Network ID Anda.
+   * Centang **Zt1 Instance**.
+4. Klik OK. Status interface akan muncul sebagai `joining` atau `requesting_configuration`.
+5. Kembali ke dashboard ZeroTier, gulir ke daftar **Members**, lalu **Centang (Authorize)** 
+   perangkat MikroTik Anda agar disetujui masuk jaringan.
+6. Status di Winbox akan berubah menjadi `OK` dan mendapatkan IP ZeroTier (misal: 10.147.20.10).
+
+------------------------------------------------------------------------
+LANGKAH 4: KONFIGURASI ROUTING DI DASHBOARD ZEROTIER (SANGAT MUDAH)
+------------------------------------------------------------------------
+Agar VPS mengetahui jalan ke segmen modem (172.16.100.0/24) di bawah MikroTik, 
+kita tidak perlu menambah perintah routing manual di VPS. Cukup tambahkan di dashboard:
+
+1. Buka dashboard ZeroTier Network Anda.
+2. Gulir ke bagian **Advanced** -> **Managed Routes**.
+3. Tambahkan route baru:
+   * **Destination**: `172.16.100.0/24` (Segmen IP modem Anda)
+   * **Via**: `10.147.20.10` (IP ZeroTier yang diperoleh MikroTik Anda)
+4. Klik **Submit**.
+5. ZeroTier akan otomatis menyebarkan tabel routing ini ke VPS secara instan.
+
+------------------------------------------------------------------------
+LANGKAH 5: KONFIGURASI FIREWALL & NAT DI MIKROTIK
+------------------------------------------------------------------------
+Jalankan perintah berikut di Terminal MikroTik Anda:
+
+1. Izinkan Koneksi Masuk (Connection Request Port 7547 TCP) dari interface ZeroTier:
+/ip firewall filter
+add action=accept chain=forward comment="GenieACS: Allow Connection Request from ZeroTier" dst-port=7547 in-interface=zt1 protocol=tcp place-before=0
+
+*(Catatan: Sesuaikan 'zt1' dengan nama interface ZeroTier yang aktif di MikroTik Anda).*
+
+2. Bypass Masquerade (NAT) agar IP modem tidak diubah saat membalas paket ke VPS:
+/ip firewall nat
+add action=accept chain=srcnat comment="GenieACS: Bypass NAT ZeroTier" dst-address=10.147.20.0/24 src-address=172.16.100.0/24 place-before=0
+
+------------------------------------------------------------------------
+LANGKAH 6: PENGUJIAN
+------------------------------------------------------------------------
+1. Uji ping dari terminal VPS GenieACS ke IP modem:
+   ping 172.16.100.252
+2. Buka GenieACS UI dan lakukan uji coba tombol [Summon] atau ubah SSID.
+========================================================================
