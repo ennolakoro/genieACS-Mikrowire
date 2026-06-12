@@ -160,11 +160,26 @@ Jalankan perintah berikut di **Terminal MikroTik Lokal** Anda:
    ```
    *(Catatan: Sesuaikan l2tp-out1 dengan nama interface L2TP client di MikroTik lokal Anda).*
 
-2. **Bypass Masquerade (NAT) untuk segment VPN:**
+2. **Bypass Masquerade (NAT) agar IP modem tetap asli saat ke VPS:**
    ```routeros
    /ip firewall nat
    add action=accept chain=srcnat comment="GenieACS: Bypass NAT L2TP" dst-address=10.10.10.0/24 src-address=172.16.100.0/24 place-before=0
    ```
+
+3. **Masquerade (NAT) Arah Sebaliknya (VPS ke Modem):**
+   *Banyak modem/ONU memblokir ping/HTTP dari subnet luar. Rule ini mengubah IP VPS menjadi IP lokal MikroTik agar diizinkan oleh modem.*
+   ```routeros
+   /ip firewall nat
+   add action=masquerade chain=srcnat comment="GenieACS: Masquerade to Modem" dst-address=172.16.100.0/24 place-before=0
+   ```
+
+4. **Tambahkan Rute Balik ke Subnet VPN (SANGAT PENTING):**
+   *Tanpa rute ini, MikroTik lokal tidak tahu jalan mengirim balik data ke VPS (IP 10.10.10.104) dan malah membuangnya ke internet.*
+   ```routeros
+   /ip route
+   add dst-address=10.10.10.0/24 gateway=l2tp-out1
+   ```
+   *(Catatan: Sesuaikan l2tp-out1 dengan nama interface L2TP client di MikroTik lokal Anda).*
 
 --------------------------------------------------------------------------------
  7. PENGUJIAN DAN VERIFIKASI KONEKSI
